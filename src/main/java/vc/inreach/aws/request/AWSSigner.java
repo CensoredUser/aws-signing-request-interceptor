@@ -11,10 +11,11 @@ import com.google.common.collect.Multimap;
 import com.google.common.escape.Escaper;
 import com.google.common.net.UrlEscapers;
 import org.apache.commons.codec.binary.Hex;
+import org.bouncycastle.crypto.Digest;
+import org.bouncycastle.crypto.digests.SHA256Digest;
+import org.bouncycastle.crypto.macs.HMac;
+import org.bouncycastle.crypto.params.KeyParameter;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
@@ -31,7 +32,6 @@ import java.util.TreeMap;
 public class AWSSigner {
 
     private final static char[] BASE16MAP = new char[]{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
-    private static final String HMAC_SHA256 = "HmacSHA256";
     private static final String SLASH = "/";
     private static final String X_AMZ_DATE = "x-amz-date";
     private static final String RETURN = "\n";
@@ -198,12 +198,13 @@ public class AWSSigner {
     }
 
     private byte[] hmacSHA256(String data, byte[] key) {
-        try {
-            final Mac mac = Mac.getInstance(HMAC_SHA256);
-            mac.init(new SecretKeySpec(key, HMAC_SHA256));
-            return mac.doFinal(data.getBytes(Charsets.UTF_8));
-        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-            throw Throwables.propagate(e);
-        }
+        byte[] dataArr = (data).getBytes(Charsets.UTF_8);
+        Digest  digest = new SHA256Digest();
+        HMac hmac = new HMac(digest);
+        hmac.init(new KeyParameter(key));
+        hmac.update(dataArr, 0, dataArr.length);
+        byte[]  resBuf = new byte[digest.getDigestSize()];
+        hmac.doFinal(resBuf, 0);
+        return resBuf;
     }
 }
